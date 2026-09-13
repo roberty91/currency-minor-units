@@ -24,6 +24,18 @@ class ExponentForTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             exponent_for("XXX")
 
+    def test_four_decimal_currency(self):
+        self.assertEqual(exponent_for("CLF"), 4)
+
+    def test_non_decimal_subdivision_still_gets_two_places(self):
+        # MGA and MRU subdivide into fifths, not tenths, but ISO 4217
+        # assigns them 2 decimal digits and this library follows ISO.
+        self.assertEqual(exponent_for("MGA"), 2)
+        self.assertEqual(exponent_for("MRU"), 2)
+
+    def test_newly_added_zero_decimal_currency(self):
+        self.assertEqual(exponent_for("XOF"), 0)
+
 
 class MinorUnitsToStringTests(unittest.TestCase):
     def test_usd(self):
@@ -34,6 +46,9 @@ class MinorUnitsToStringTests(unittest.TestCase):
 
     def test_bhd_has_three_places(self):
         self.assertEqual(minor_units_to_string(1500, "BHD"), "1.500")
+
+    def test_clf_has_four_places(self):
+        self.assertEqual(minor_units_to_string(123456, "CLF"), "12.3456")
 
     def test_negative_amount(self):
         self.assertEqual(minor_units_to_string(-250, "USD"), "-2.50")

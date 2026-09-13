@@ -45,9 +45,13 @@ raises `TypeError`) because `10.5` can't always be represented exactly
 as a float, and money should never take that risk. Pass a string or a
 `Decimal` instead.
 
-Only a small set of currencies is known right now (see
-`_EXPONENTS` in `src/currency_minor_units/converter.py`). Unknown codes
-raise `KeyError` rather than guessing.
+Currency coverage follows the ISO 4217 exponent table (see `_EXPONENTS`
+in `src/currency_minor_units/converter.py`) rather than a payment
+processor's "zero-decimal currency" list, so a couple of codes are
+worth calling out: MGA and MRU are subdivided into fifths rather than
+tenths, but ISO 4217 still assigns them 2 decimal digits, and CLF/UYW
+are non-circulating settlement currencies with 4 decimal digits. Codes
+that aren't in the table raise `KeyError` rather than guessing.
 
 ## Installing
 

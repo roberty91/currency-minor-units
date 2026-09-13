@@ -10,24 +10,44 @@ three, most others have two).
 
 from decimal import Decimal, InvalidOperation
 
-# ISO 4217 minor unit counts, kept short on purpose: add currencies as
-# they're actually needed rather than trying to enumerate all ~180 up front.
+# ISO 4217 minor unit counts, grouped by exponent rather than alphabetically
+# so it's obvious at a glance which bucket a given currency falls into.
+#
+# MGA (Malagasy ariary) and MRU (Mauritanian ouguiya) are officially
+# subdivided into fifths rather than tenths, but ISO 4217 still lists them
+# with 2 decimal digits, so they're grouped here with the rest of the
+# 2-decimal currencies rather than treated as a special case.
+_ZERO_DECIMAL = (
+    "BIF", "CLP", "DJF", "GNF", "ISK", "JPY", "KMF", "KRW", "PYG", "RWF",
+    "UGX", "UYI", "VND", "VUV", "XAF", "XOF", "XPF",
+)
+
+_TWO_DECIMAL = (
+    "AED", "AFN", "ALL", "AMD", "ANG", "AOA", "ARS", "AUD", "AWG", "AZN",
+    "BAM", "BBD", "BDT", "BGN", "BMD", "BND", "BOB", "BRL", "BSD", "BTN",
+    "BWP", "BYN", "BZD", "CAD", "CDF", "CHF", "COP", "CRC", "CUC", "CUP",
+    "CVE", "CZK", "DKK", "DOP", "DZD", "EGP", "ERN", "ETB", "EUR", "FJD",
+    "FKP", "GBP", "GEL", "GHS", "GIP", "GMD", "GTQ", "GYD", "HKD", "HNL",
+    "HTG", "HUF", "IDR", "ILS", "INR", "JMD", "KES", "KGS", "KHR", "KYD",
+    "KZT", "LAK", "LBP", "LKR", "LRD", "LSL", "MAD", "MDL", "MGA", "MKD",
+    "MMK", "MNT", "MOP", "MRU", "MUR", "MVR", "MWK", "MXN", "MYR", "MZN",
+    "NAD", "NGN", "NIO", "NOK", "NPR", "NZD", "PAB", "PEN", "PGK", "PHP",
+    "PKR", "PLN", "QAR", "RON", "RSD", "RUB", "SAR", "SBD", "SCR", "SDG",
+    "SEK", "SGD", "SHP", "SLE", "SOS", "SRD", "SSP", "STN", "SVC", "SYP",
+    "SZL", "THB", "TJS", "TMT", "TOP", "TRY", "TTD", "TWD", "TZS", "UAH",
+    "USD", "UYU", "UZS", "VES", "WST", "XCD", "YER", "ZAR", "ZMW",
+)
+
+_THREE_DECIMAL = ("BHD", "IQD", "JOD", "KWD", "LYD", "OMR", "TND")
+
+# Non-circulating settlement currencies that use a fourth decimal place.
+_FOUR_DECIMAL = ("CLF", "UYW")
+
 _EXPONENTS = {
-    "USD": 2,
-    "EUR": 2,
-    "GBP": 2,
-    "CHF": 2,
-    "CAD": 2,
-    "AUD": 2,
-    "JPY": 0,
-    "KRW": 0,
-    "VND": 0,
-    "ISK": 0,
-    "BHD": 3,
-    "KWD": 3,
-    "OMR": 3,
-    "TND": 3,
-    "JOD": 3,
+    **{code: 0 for code in _ZERO_DECIMAL},
+    **{code: 2 for code in _TWO_DECIMAL},
+    **{code: 3 for code in _THREE_DECIMAL},
+    **{code: 4 for code in _FOUR_DECIMAL},
 }
 
 
