@@ -50,6 +50,13 @@ _EXPONENTS = {
     **{code: 4 for code in _FOUR_DECIMAL},
 }
 
+# Single-character symbols only. Multi-character ones like "kr" or "zł"
+# are left alone because they overlap with letters that show up in real
+# amounts (e.g. a stray "kr" could just as easily be someone's initials
+# in a pasted spreadsheet cell), so stripping them risks corrupting the
+# number instead of cleaning it up.
+_CURRENCY_SYMBOLS = frozenset("$€£¥₹₩₽₺₴₪₫₦₱฿₡₲₵₸₭₮")
+
 
 def exponent_for(currency: str) -> int:
     """Return how many decimal places minor units use for a currency.
@@ -113,3 +120,106 @@ def decimal_to_minor_units(value, currency: str) -> int:
             f"({exponent} decimal {places})"
         )
     return int(scaled)
+
+
+def _split_thousands_separator(text: str) -> str:
+    """Rewrite a string with at most one kind of separator into plain decimal form.
+
+    Whichever of ',' or '.' shows up gets treated as a thousands separator
+    when it's followed by exactly three digits (the standard grouping
+    width) and as a decimal point otherwise.
+    """
+    for sep in (",", "."):
+        count = text.count(sep)
+        if count == 0:
+            continue
+        digits_after_last = len(text) - text.rfind(sep) - 1
+        if count > 1 or digits_after_last == 3:
+            return text.replace(sep, "")
+        return text.replace(sep, ".") if sep != "." else text
+    return text
+
+
+def _normalize_formatted_number(text: str) -> str:
+    """Turn a formatted number like "1.050,00" or "1,050" into plain decimal text."""
+    has_comma = "," in text
+    has_period = "." in text
+    if has_comma and has_period:
+        last_comma = text.rfind(",")
+        last_period = text.rfind(".")
+        if last_comma > last_period:
+            decimal_sep, thousands_sep = ",", "."
+        else:
+            decimal_sep, thousands_sep = ".", ","
+        cleaned = text.replace(thousands_sep, "")
+        if decimal_sep != ".":
+            cleaned = cleaned.replace(decimal_sep, ".")
+        return cleaned
+    return _split_thousands_separator(text)
+
+
+def formatted_string_to_minor_units(text: str, currency: str) -> int:
+    """Parse a human-formatted amount into an integer minor-unit amount.
+
+    Handles the things a plain `decimal_to_minor_units` call rejects:
+    thousands separators, a small set of single-character currency
+    symbols, the currency's own ISO code as a prefix or suffix, and
+    parentheses or a leading minus sign for negative amounts.
+
+    e.g. formatted_string_to_minor_units("$1,050.00", "USD") -> 105000
+         formatted_string_to_minor_units("1.050,00", "EUR") -> 105000
+         formatted_string_to_minor_units("(10.50)", "USD") -> -1050
+         formatted_string_to_minor_units("JPY 1,050", "JPY") -> 1050
+
+    Whether a lone comma or period is a thousands separator or a decimal
+    point is inferred from context (three digits after it means
+    thousands separator, anything else means decimal point), not from a
+    fixed locale, so genuinely ambiguous input like "10,000" for a
+    three-decimal currency can still be misread. When in doubt, pass an
+    unambiguous string with both a thousands separator and a decimal
+    point, or use `decimal_to_minor_units` directly.
+    """
+    if not isinstance(text, str):
+        raise TypeError("amount must be a str")
+
+    stripped = text.strip()
+    if not stripped:
+        raise ValueError("empty amount string")
+
+    negative = False
+    if stripped.startswith("(") and stripped.endswith(")"):
+        negative = True
+        stripped = stripped[1:-1].strip()
+
+    if stripped.startswith("-"):
+        negative = True
+        stripped = stripped[1:].strip()
+    elif stripped.startswith("+"):
+        stripped = stripped[1:].strip()
+
+    code = currency.upper()
+    upper = stripped.upper()
+    if upper.startswith(code):
+        stripped = stripped[len(code):].strip()
+    elif upper.endswith(code):
+        stripped = stripped[: len(stripped) - len(code)].strip()
+
+    if stripped and stripped[0] in _CURRENCY_SYMBOLS:
+        stripped = stripped[1:].strip()
+    elif stripped and stripped[-1] in _CURRENCY_SYMBOLS:
+        stripped = stripped[:-1].strip()
+
+    if stripped.startswith("-"):
+        negative = True
+        stripped = stripped[1:].strip()
+    elif stripped.startswith("+"):
+        stripped = stripped[1:].strip()
+
+    if not stripped:
+        raise ValueError(f"not a valid amount: {text!r}")
+
+    normalized = _normalize_formatted_number(stripped)
+    if negative:
+        normalized = "-" + normalized
+
+    return decimal_to_minor_units(normalized, currency)

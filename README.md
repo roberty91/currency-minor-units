@@ -36,6 +36,29 @@ decimal places a currency uses, and `minor_units_to_decimal(amount,
 currency)` if you want a `decimal.Decimal` instead of a formatted string
 (e.g. to do further arithmetic before displaying it).
 
+For amounts that come from user input, spreadsheets, or invoices rather
+than an API, `formatted_string_to_minor_units` handles the things
+`decimal_to_minor_units` deliberately rejects: thousands separators, a
+currency symbol, the currency's own ISO code as a prefix or suffix, and
+parentheses or a leading minus sign for negative amounts.
+
+```python
+from currency_minor_units import formatted_string_to_minor_units
+
+formatted_string_to_minor_units("$1,050.00", "USD")  # 105000
+formatted_string_to_minor_units("1.050,00", "EUR")   # 105000
+formatted_string_to_minor_units("(10.50)", "USD")    # -1050
+formatted_string_to_minor_units("JPY 1,050", "JPY")  # 1050
+```
+
+Whether a lone comma or period is a thousands separator or a decimal
+point is inferred from context (three digits after it means thousands
+separator, anything else means decimal point), not from a fixed locale,
+so genuinely ambiguous input like `"10,000"` for a three-decimal
+currency can still be misread. When in doubt, pass an unambiguous
+string with both a thousands separator and a decimal point, or use
+`decimal_to_minor_units` directly.
+
 Every public function is pure — same input, same output, no I/O, no
 shared state — which is what makes them straightforward to unit test
 and safe to use inside larger pipelines.

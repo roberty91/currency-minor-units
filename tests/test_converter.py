@@ -4,6 +4,7 @@ from decimal import Decimal
 from currency_minor_units import (
     decimal_to_minor_units,
     exponent_for,
+    formatted_string_to_minor_units,
     minor_units_to_decimal,
     minor_units_to_string,
 )
@@ -85,6 +86,68 @@ class DecimalToMinorUnitsTests(unittest.TestCase):
         original = 199
         as_decimal = minor_units_to_decimal(original, "USD")
         self.assertEqual(decimal_to_minor_units(as_decimal, "USD"), original)
+
+
+class FormattedStringToMinorUnitsTests(unittest.TestCase):
+    def test_dollar_sign_with_thousands_separator(self):
+        self.assertEqual(formatted_string_to_minor_units("$1,050.00", "USD"), 105000)
+
+    def test_symbol_after_amount_with_space(self):
+        self.assertEqual(formatted_string_to_minor_units("1050.00 $", "USD"), 105000)
+
+    def test_european_style_separators(self):
+        self.assertEqual(formatted_string_to_minor_units("1.050,00", "EUR"), 105000)
+
+    def test_plain_amount_no_separators(self):
+        self.assertEqual(formatted_string_to_minor_units("10.50", "USD"), 1050)
+
+    def test_currency_code_prefix(self):
+        self.assertEqual(formatted_string_to_minor_units("USD 10.50", "USD"), 1050)
+
+    def test_currency_code_suffix(self):
+        self.assertEqual(formatted_string_to_minor_units("10.50 USD", "USD"), 1050)
+
+    def test_zero_decimal_currency_with_grouping(self):
+        self.assertEqual(formatted_string_to_minor_units("JPY 1,050", "JPY"), 1050)
+
+    def test_parentheses_mean_negative(self):
+        self.assertEqual(formatted_string_to_minor_units("(10.50)", "USD"), -1050)
+
+    def test_leading_minus_sign(self):
+        self.assertEqual(formatted_string_to_minor_units("-$10.50", "USD"), -1050)
+
+    def test_sign_between_symbol_and_digits(self):
+        self.assertEqual(formatted_string_to_minor_units("$-10.50", "USD"), -1050)
+
+    def test_leading_plus_sign(self):
+        self.assertEqual(formatted_string_to_minor_units("+10.50", "USD"), 1050)
+
+    def test_surrounding_whitespace_is_ignored(self):
+        self.assertEqual(formatted_string_to_minor_units("  10.50  ", "USD"), 1050)
+
+    def test_lowercase_currency_code_is_accepted(self):
+        self.assertEqual(formatted_string_to_minor_units("usd 10.50", "USD"), 1050)
+
+    def test_multiple_thousands_groups(self):
+        self.assertEqual(
+            formatted_string_to_minor_units("$1,234,567.89", "USD"), 123456789
+        )
+
+    def test_rejects_non_str(self):
+        with self.assertRaises(TypeError):
+            formatted_string_to_minor_units(1050, "USD")
+
+    def test_rejects_empty_string(self):
+        with self.assertRaises(ValueError):
+            formatted_string_to_minor_units("", "USD")
+
+    def test_rejects_symbol_only_string(self):
+        with self.assertRaises(ValueError):
+            formatted_string_to_minor_units("$", "USD")
+
+    def test_rejects_garbage(self):
+        with self.assertRaises(ValueError):
+            formatted_string_to_minor_units("not an amount", "USD")
 
 
 if __name__ == "__main__":
