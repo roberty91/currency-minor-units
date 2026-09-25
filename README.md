@@ -59,6 +59,29 @@ currency can still be misread. When in doubt, pass an unambiguous
 string with both a thousands separator and a decimal point, or use
 `decimal_to_minor_units` directly.
 
+For converting an amount from one currency to another at an exchange
+rate, use `convert_minor_units`. Unlike `decimal_to_minor_units`, it
+rounds rather than rejecting extra precision, because an exchange rate
+multiplication almost never lands exactly on a whole minor unit of the
+target currency:
+
+```python
+from currency_minor_units import convert_minor_units
+
+# 10.00 EUR at a rate of 1 EUR = 1.08 USD
+convert_minor_units(1000, "EUR", "USD", "1.08")  # 1080
+
+# rounding mode defaults to ROUND_HALF_UP; pass any decimal.ROUND_*
+# constant to change it
+from decimal import ROUND_DOWN
+convert_minor_units(333, "EUR", "USD", "1.005", rounding=ROUND_DOWN)  # 334
+```
+
+`rate` is the price of one unit of the source currency in the target
+currency, and must be a `str` or `Decimal` for the same reason floats
+are rejected elsewhere in this library: `1.08` can't always be
+represented exactly as a float.
+
 Every public function is pure — same input, same output, no I/O, no
 shared state — which is what makes them straightforward to unit test
 and safe to use inside larger pipelines.

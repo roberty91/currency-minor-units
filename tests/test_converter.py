@@ -1,7 +1,8 @@
 import unittest
-from decimal import Decimal
+from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 
 from currency_minor_units import (
+    convert_minor_units,
     decimal_to_minor_units,
     exponent_for,
     formatted_string_to_minor_units,
@@ -148,6 +149,56 @@ class FormattedStringToMinorUnitsTests(unittest.TestCase):
     def test_rejects_garbage(self):
         with self.assertRaises(ValueError):
             formatted_string_to_minor_units("not an amount", "USD")
+
+
+class ConvertMinorUnitsTests(unittest.TestCase):
+    def test_exact_conversion(self):
+        self.assertEqual(convert_minor_units(1000, "EUR", "USD", "1.08"), 1080)
+
+    def test_rounds_half_up_by_default(self):
+        # 3.33 EUR * 1.005 = 3.34665, which rounds to 3.35 USD.
+        self.assertEqual(convert_minor_units(333, "EUR", "USD", "1.005"), 335)
+
+    def test_rounding_mode_is_configurable(self):
+        self.assertEqual(
+            convert_minor_units(333, "EUR", "USD", "1.005", rounding=ROUND_DOWN),
+            334,
+        )
+
+    def test_converts_to_zero_decimal_currency(self):
+        # 3.33 USD * 150.4 = 500.832, rounds to 501 whole yen.
+        self.assertEqual(convert_minor_units(333, "USD", "JPY", "150.4"), 501)
+
+    def test_accepts_decimal_rate(self):
+        self.assertEqual(convert_minor_units(1000, "EUR", "USD", Decimal("1.08")), 1080)
+
+    def test_rejects_float_rate(self):
+        with self.assertRaises(TypeError):
+            convert_minor_units(1000, "EUR", "USD", 1.08)
+
+    def test_rejects_float_amount(self):
+        with self.assertRaises(TypeError):
+            convert_minor_units(10.0, "EUR", "USD", "1.08")
+
+    def test_rejects_non_positive_rate(self):
+        with self.assertRaises(ValueError):
+            convert_minor_units(1000, "EUR", "USD", "0")
+        with self.assertRaises(ValueError):
+            convert_minor_units(1000, "EUR", "USD", "-1.08")
+
+    def test_rejects_garbage_rate(self):
+        with self.assertRaises(ValueError):
+            convert_minor_units(1000, "EUR", "USD", "not a rate")
+
+    def test_unknown_currency_raises(self):
+        with self.assertRaises(KeyError):
+            convert_minor_units(1000, "XXX", "USD", "1.08")
+
+    def test_default_rounding_matches_explicit_half_up(self):
+        self.assertEqual(
+            convert_minor_units(333, "EUR", "USD", "1.005", rounding=ROUND_HALF_UP),
+            convert_minor_units(333, "EUR", "USD", "1.005"),
+        )
 
 
 if __name__ == "__main__":

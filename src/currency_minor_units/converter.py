@@ -8,7 +8,7 @@ uses, which is not the same for every currency (JPY has none, BHD has
 three, most others have two).
 """
 
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 # ISO 4217 minor unit counts, grouped by exponent rather than alphabetically
 # so it's obvious at a glance which bucket a given currency falls into.
@@ -120,6 +120,50 @@ def decimal_to_minor_units(value, currency: str) -> int:
             f"({exponent} decimal {places})"
         )
     return int(scaled)
+
+
+def convert_minor_units(
+    amount: int,
+    from_currency: str,
+    to_currency: str,
+    rate,
+    rounding=ROUND_HALF_UP,
+) -> int:
+    """Convert a minor-unit amount from one currency to another via an exchange rate.
+
+    `rate` is the price of one unit of `from_currency` in `to_currency`
+    (e.g. rate="1.08" converting EUR to USD means 1 EUR buys 1.08 USD).
+    Pass a str or Decimal, not a float, for the same exactness reasons as
+    `decimal_to_minor_units`.
+
+    Unlike `decimal_to_minor_units`, this rounds instead of rejecting
+    extra precision: an exchange rate almost never lands exactly on a
+    whole minor unit of the target currency, so something has to give,
+    and `rounding` (a `decimal` module rounding mode) controls how.
+    """
+    if isinstance(amount, bool) or not isinstance(amount, int):
+        raise TypeError("minor units must be an int")
+    if isinstance(rate, float):
+        raise TypeError(
+            "pass a str or Decimal for rate, not float — floats can't "
+            "represent exact exchange rates"
+        )
+
+    try:
+        rate_value = Decimal(rate)
+    except InvalidOperation as exc:
+        raise ValueError(f"not a valid exchange rate: {rate!r}") from exc
+
+    if rate_value <= 0:
+        raise ValueError(f"exchange rate must be positive, got {rate!r}")
+
+    source_amount = minor_units_to_decimal(amount, from_currency)
+    target_exponent = exponent_for(to_currency)
+    target_amount = source_amount * rate_value
+    quantized = target_amount.quantize(
+        Decimal(1).scaleb(-target_exponent), rounding=rounding
+    )
+    return int(quantized)
 
 
 def _split_thousands_separator(text: str) -> str:
